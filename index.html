@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Battleship vs AI</title>
+  <meta name="description" content="Play Battleship in your browser against an AI opponent." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1><span class="logo" aria-hidden="true">⚓</span> Battleship <span class="vs">vs AI</span></h1>
+    <div class="controls">
+      <label for="difficulty">AI difficulty</label>
+      <select id="difficulty"></select>
+      <button id="new-game" class="btn ghost" type="button">New game</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="status" class="status" role="status" aria-live="polite">Place your fleet to begin.</section>
+
+    <section id="placement" class="placement">
+      <div class="dock" id="dock" aria-label="Your fleet"></div>
+      <div class="placement-actions">
+        <button id="rotate" class="btn" type="button" title="Shortcut: R">Rotate: <span id="orientation">Horizontal</span></button>
+        <button id="random" class="btn" type="button">Random</button>
+        <button id="clear" class="btn" type="button">Clear</button>
+        <button id="start" class="btn primary" type="button" disabled>Start battle</button>
+      </div>
+      <p class="hint">Select a ship, then click a cell on <strong>your waters</strong> to place it. Press <kbd>R</kbd> to rotate. Click a placed ship to pick it up again.</p>
+    </section>
+
+    <section class="boards">
+      <div class="board-wrap">
+        <h2>Your waters</h2>
+        <div class="board" id="player-board" aria-label="Your board"></div>
+        <ul class="fleet-status" id="player-fleet" aria-label="Your ships"></ul>
+      </div>
+      <div class="board-wrap enemy-wrap">
+        <h2>Enemy waters</h2>
+        <div class="board enemy" id="enemy-board" aria-label="Enemy board"></div>
+        <ul class="fleet-status" id="enemy-fleet" aria-label="Enemy ships"></ul>
+      </div>
+    </section>
+
+    <section class="side">
+      <div class="scoreboard" id="scoreboard"></div>
+      <h3>Battle log</h3>
+      <ol class="log" id="log"></ol>
+    </section>
+  </main>
+
+  <dialog id="game-over">
+    <h2 id="result-title"></h2>
+    <p id="result-text"></p>
+    <div class="dialog-actions">
+      <button id="view-board" class="btn" type="button">View boards</button>
+      <button id="play-again" class="btn primary" type="button">Play again</button>
+    </div>
+  </dialog>
+
+  <footer>Built with vanilla JavaScript · <a href="https://github.com/Vicky-526/cognition-devin-battleship-game-vs-ai">Source on GitHub</a></footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
