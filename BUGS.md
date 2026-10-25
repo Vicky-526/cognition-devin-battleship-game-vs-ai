@@ -5,6 +5,8 @@ How I tested:
 - **Unit tests** (`npm test`): ship placement, bounds and overlap checks, shot results, turn order, and game-over handling.
 - **AI simulations**: 300 seeded full games per difficulty. They check that the AI never fires at the same cell twice, never fires off the board, always finishes within 100 shots, and that each harder level really is stronger.
 - **Automated browser play-through** (`tests/e2e/smoke.mjs`, Playwright + Chromium): manual placement, rotation, picking up a ship, Random placement, full games until the end screen, a desktop (1300px) viewport and a mobile (390px) viewport. It also fails on any console or page error.
+  - It also checks the AI heat map (exactly one crosshair and a visible overlay during the AI's turn, nothing shown when the toggle is off).
+  - For sound, it counts audio nodes: sounds are created during play and none are created while muted.
 
 ## Bugs found and fixed
 
@@ -16,6 +18,14 @@ How I tested:
 | 4 | **Shot results only appeared in the side log.** The status bar only said "Enemy is taking aim…" / "Your turn", so you couldn't see what just happened without reading the log (which sits below the boards on mobile). | Found during the browser play-through. | The status bar now shows the result first, e.g. "Enemy hit you at E3! Your turn — fire on the enemy waters." |
 | 5 | **Easy AI was almost impossible to lose to.** Pure random fire needed **95 shots on average** (max 100) to sink a fleet, so it nearly had to clear the whole board. | Found in the simulation stats. | Easy now follows up a hit 50% of the time: ~63 shots on average. That's still clearly weaker than Normal (~50) and Hard (~44), and a test checks that this order holds. |
 | 6 | **Possible crash in the Normal AI once every ship is sunk.** Its search pattern used `Math.min(...remainingShips)`, which returns `Infinity` for an empty list and would break the modulo check. | Found in code review. It can't happen in a normal game today because play stops when the last ship sinks. | Falls back to a step of 1 when no ships remain. |
+
+### Found while adding sound and the AI heat map
+
+| # | Bug | How it showed up | Fix |
+|---|---|---|---|
+| 7 | **The heat map tinted the whole board on Hard.** Once the AI is chasing a hit, cells far from the hit still get a tiny non-zero score. Every highlighted cell had at least 25% opacity, so those near-zero cells turned the entire board grey-purple and hid the cells that mattered. | Screenshot of a Hard game during the AI's turn. | Cells below 2% of the top score aren't drawn, and opacity now scales from 12% to 85% with the score. Only the cells the AI is really considering stand out. |
+| 8 | **The heat map could show one cell while the AI fired at another.** If the overlay were computed separately from the shot, the AI's random tie-breaking could pick a different cell from the one marked with the crosshair. | Found while designing the feature, before it shipped. | `AIPlayer.plan()` returns the shot *and* its heat map together. `Game.planAiTurn()` stores that plan and `Game.aiFire()` fires at exactly that cell. A test checks the fired cell always matches the plan. |
+| 9 | **A delayed sound could play in the next game.** The hit/miss sound plays 220ms after the firing sound, so clicking *New game* in between would play an old explosion over the new game. | Found in code review. | The delayed sound only plays if the same game is still running. |
 
 ## Edge cases checked and protected by tests
 

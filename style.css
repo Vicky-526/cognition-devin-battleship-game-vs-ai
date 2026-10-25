@@ -185,6 +185,51 @@ body[data-turn="ai"] .enemy { opacity: 0.8; }
 .cell.ship.revealed { opacity: 0.55; }
 .cell.ship.sunk { background: linear-gradient(180deg, #5b3a3a, #3c2525); }
 
+.cell .heat {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s, background-color 0.3s;
+}
+.cell .heat.on {
+  opacity: calc(0.12 + 0.73 * var(--h));
+  background: hsl(calc(55 - 55 * var(--h)) 100% 50%);
+}
+.cell.aim { box-shadow: inset 0 0 0 2px #fff; }
+.cell.aim::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background:
+    linear-gradient(#fff, #fff) center / 2px 100% no-repeat,
+    linear-gradient(#fff, #fff) center / 100% 2px no-repeat;
+  animation: aim 0.65s ease-in-out infinite alternate;
+}
+@keyframes aim {
+  from { transform: scale(1.25) rotate(0deg); opacity: 0.6; }
+  to { transform: scale(0.9) rotate(45deg); opacity: 1; }
+}
+
+.toggle { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text) !important; }
+.toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+.heat-legend { margin-top: 12px; font-size: 0.8rem; color: var(--muted); max-width: calc(var(--cell) * 10.7 + 20px); }
+.heat-legend[hidden] { display: none; }
+.heat-legend p { margin: 6px 0 0; }
+.heat-scale { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.heat-bar {
+  width: 90px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, hsla(55, 100%, 50%, 0.35), hsl(28, 100%, 50%), hsl(0, 100%, 50%));
+}
+.aim-key { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
+.aim-key i { width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; display: inline-block; }
+
 .cell.preview { background: rgba(61, 220, 151, 0.55); box-shadow: inset 0 0 0 2px var(--good); }
 .cell.preview-bad { background: rgba(255, 77, 109, 0.5); box-shadow: inset 0 0 0 2px var(--bad); }
 
@@ -313,5 +358,5 @@ footer a { color: var(--accent); }
   .controls select { max-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .cell.last.miss::before, .cell.last.hit::before, .cell.last.hit::after { animation: none; }
+  .cell.last.miss::before, .cell.last.hit::before, .cell.last.hit::after, .cell.aim::before { animation: none; }
 }

@@ -14,6 +14,8 @@
     <div class="controls">
       <label for="difficulty">AI difficulty</label>
       <select id="difficulty"></select>
+      <label class="toggle" title="Show where the AI is looking"><input type="checkbox" id="heat-toggle" /> AI heat map</label>
+      <button id="sound-toggle" class="btn ghost" type="button" aria-pressed="true">🔊 Sound on</button>
       <button id="new-game" class="btn ghost" type="button">New game</button>
     </div>
   </header>
@@ -37,6 +39,10 @@
         <h2>Your waters</h2>
         <div class="board" id="player-board" aria-label="Your board"></div>
         <ul class="fleet-status" id="player-fleet" aria-label="Your ships"></ul>
+        <div class="heat-legend" id="heat-legend" hidden>
+          <div class="heat-scale"><span>AI interest: low</span><i class="heat-bar"></i><span>high</span><span class="aim-key"><i></i> next shot</span></div>
+          <p id="heat-mode"></p>
+        </div>
       </div>
       <div class="board-wrap enemy-wrap">
         <h2>Enemy waters</h2>

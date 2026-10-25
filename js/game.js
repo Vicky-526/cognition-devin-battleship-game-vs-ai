@@ -12,6 +12,7 @@ export class Game {
     this.phase = 'placement';
     this.turn = 'player';
     this.winner = null;
+    this.aiPlan = null;
     this.stats = {
       player: { shots: 0, hits: 0 },
       ai: { shots: 0, hits: 0 },
@@ -39,15 +40,23 @@ export class Game {
     return outcome;
   }
 
+  planAiTurn() {
+    if (this.phase !== 'battle' || this.turn !== 'ai') return null;
+    if (!this.aiPlan) this.aiPlan = this.ai.plan();
+    return this.aiPlan;
+  }
+
   aiFire() {
     if (this.phase !== 'battle' || this.turn !== 'ai') return { result: 'invalid' };
-    const [r, c] = this.ai.nextShot();
+    const plan = this.planAiTurn();
+    this.aiPlan = null;
+    const [r, c] = plan.shot;
     const outcome = this.player.receiveShot(r, c);
     this.ai.record(r, c, outcome);
     this.tally('ai', outcome);
     if (this.player.allSunk()) this.finish('ai');
     else this.turn = 'player';
-    return { ...outcome, r, c };
+    return { ...outcome, r, c, plan };
   }
 
   tally(who, outcome) {

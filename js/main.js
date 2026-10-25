@@ -1,14 +1,29 @@
 import { FLEET, COLS, coordLabel } from './engine.js';
 import { AIPlayer, DIFFICULTIES } from './ai.js';
 import { Game } from './game.js';
+import { SoundFX } from './sound.js';
 
 const AI_DELAY_MS = 650;
 const RECORD_KEY = 'battleship-record-v1';
+const HEAT_KEY = 'battleship-heatmap-v1';
+const RESULT_SOUND_DELAY_MS = 220;
+const MIN_VISIBLE_HEAT = 0.02;
+const HEAT_DESCRIPTIONS = {
+  easy: 'Easy AI: highlighted cells are the ones it is picking from at random.',
+  normal: 'Normal AI: highlighted cells are its current candidates (checkerboard search, or cells around a hit).',
+  hard: 'Hard AI: colour shows how many possible ship placements cover each cell. Redder means more likely.',
+};
+
+const sound = new SoundFX();
 
 const $ = (id) => document.getElementById(id);
 const els = {
   difficulty: $('difficulty'),
   newGame: $('new-game'),
+  soundToggle: $('sound-toggle'),
+  heatToggle: $('heat-toggle'),
+  heatLegend: $('heat-legend'),
+  heatMode: $('heat-mode'),
   status: $('status'),
   placement: $('placement'),
   dock: $('dock'),
@@ -38,6 +53,8 @@ const ui = {
   aiTimer: null,
   lastPlayerShot: null,
   lastAiShot: null,
+  aiPlan: null,
+  showHeat: loadHeatPref(),
   record: loadRecord(),
 };
 
@@ -49,13 +66,27 @@ function loadRecord() {
   return { wins: 0, losses: 0 };
 }
 
+function loadHeatPref() {
+  try {
+    return localStorage.getItem(HEAT_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function saveHeatPref() {
+  try {
+    localStorage.setItem(HEAT_KEY, ui.showHeat ? 'on' : 'off');
+  } catch { /* storage unavailable */ }
+}
+
 function saveRecord() {
   try {
     localStorage.setItem(RECORD_KEY, JSON.stringify(ui.record));
   } catch { /* storage may be unavailable (private mode) */ }
 }
 
-function buildBoard(container, onCell) {
+function buildBoard(container, onCell, withHeat = false) {
   container.innerHTML = '';
   container.appendChild(document.createElement('div')).className = 'label corner';
   for (let c = 0; c < 10; c++) {
@@ -74,6 +105,7 @@ function buildBoard(container, onCell) {
       cell.className = 'cell';
       cell.dataset.r = r;
       cell.dataset.c = c;
+      if (withHeat) cell.appendChild(document.createElement('span')).className = 'heat';
       container.appendChild(cell);
       cells.push(cell);
     }
@@ -97,7 +129,7 @@ function init() {
   }
   els.difficulty.value = 'normal';
 
-  playerCells = buildBoard(els.playerBoard, onPlayerCell);
+  playerCells = buildBoard(els.playerBoard, onPlayerCell, true);
   enemyCells = buildBoard(els.enemyBoard, onEnemyCell);
 
   els.playerBoard.addEventListener('mouseover', (e) => {
@@ -128,6 +160,18 @@ function init() {
   });
   els.viewBoard.addEventListener('click', () => els.dialog.close());
   els.difficulty.addEventListener('change', onDifficultyChange);
+  els.soundToggle.addEventListener('click', () => {
+    sound.setEnabled(!sound.enabled);
+    sound.play('click');
+    renderSoundToggle();
+  });
+  els.heatToggle.checked = ui.showHeat;
+  els.heatToggle.addEventListener('change', () => {
+    ui.showHeat = els.heatToggle.checked;
+    saveHeatPref();
+    render();
+  });
+  renderSoundToggle();
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'r' && e.key !== 'R') return;
@@ -148,6 +192,7 @@ function newGame() {
   ui.horizontal = true;
   ui.lastPlayerShot = null;
   ui.lastAiShot = null;
+  ui.aiPlan = null;
   els.log.innerHTML = '';
   setStatus('Place your fleet to begin. Select a ship, then click your waters.');
   render();
@@ -166,12 +211,14 @@ function onDifficultyChange() {
 
 function rotate() {
   ui.horizontal = !ui.horizontal;
+  sound.play('click');
   render();
 }
 
 function randomPlacement() {
   ui.game.player.randomize(FLEET);
   ui.selected = null;
+  sound.play('place');
   setStatus('Fleet deployed at random. Hit "Start battle" when ready.');
   render();
 }
@@ -179,6 +226,7 @@ function randomPlacement() {
 function clearPlacement() {
   ui.game.player.reset();
   ui.selected = FLEET[0].id;
+  sound.play('pickup');
   setStatus('Board cleared. Place your fleet.');
   render();
 }
@@ -197,20 +245,24 @@ function onPlayerCell(r, c) {
     board.remove(existing.id);
     ui.selected = existing.id;
     ui.horizontal = existing.horizontal;
+    sound.play('pickup');
     setStatus(`Picked up your ${existing.name}. Click to place it again.`);
     render();
     return;
   }
   if (!ui.selected) {
+    sound.play('error');
     setStatus('Select a ship from the dock first.');
     return;
   }
   const def = FLEET.find((d) => d.id === ui.selected);
   if (!board.canPlace(r, c, def.length, ui.horizontal)) {
+    sound.play('error');
     setStatus(`Your ${def.name} doesn't fit there.`);
     return;
   }
   board.place(def, r, c, ui.horizontal);
+  sound.play('place');
   ui.selected = nextUnplaced();
   setStatus(ui.selected ? `${def.name} placed.` : 'Fleet ready! Hit "Start battle".');
   render();
@@ -220,6 +272,7 @@ function startBattle() {
   const { game } = ui;
   if (game.phase !== 'placement' || !game.player.isComplete()) return;
   game.start();
+  sound.play('start');
   ui.selected = null;
   ui.hover = null;
   setStatus('Battle stations! Fire on the enemy waters.');
@@ -236,12 +289,15 @@ function onEnemyCell(r, c) {
   if (!game.canPlayerFire(r, c)) return;
   const outcome = game.playerFire(r, c);
   ui.lastPlayerShot = [r, c];
+  playShotSounds(outcome);
   describeShot('player', r, c, outcome);
   render();
   if (game.phase === 'over') {
     endGame();
     return;
   }
+  ui.aiPlan = game.planAiTurn();
+  render();
   setStatus(`${resultPhrase('player', outcome)} Enemy is taking aim…`);
   ui.aiTimer = setTimeout(aiTurn, AI_DELAY_MS);
 }
@@ -252,6 +308,8 @@ function aiTurn() {
   if (game.phase !== 'battle' || game.turn !== 'ai') return;
   const outcome = game.aiFire();
   ui.lastAiShot = [outcome.r, outcome.c];
+  ui.aiPlan = outcome.plan;
+  playShotSounds(outcome);
   describeShot('ai', outcome.r, outcome.c, outcome);
   render();
   if (game.phase === 'over') endGame();
@@ -271,6 +329,14 @@ function describeShot(who, r, c, outcome) {
   if (text) addLog(`${who} ${outcome.result}`, text);
 }
 
+function playShotSounds(outcome) {
+  sound.play('fire');
+  const { game } = ui;
+  setTimeout(() => {
+    if (ui.game === game) sound.play(outcome.result);
+  }, RESULT_SOUND_DELAY_MS);
+}
+
 function resultPhrase(who, outcome) {
   const label = coordLabel(...(who === 'player' ? ui.lastPlayerShot : ui.lastAiShot));
   if (who === 'player') {
@@ -287,6 +353,7 @@ function endGame() {
   if (won) ui.record.wins += 1;
   else ui.record.losses += 1;
   saveRecord();
+  sound.play(won ? 'win' : 'lose');
   const s = game.stats.player;
   els.resultTitle.textContent = won ? 'Victory! 🎉' : 'Defeat ⚓';
   els.resultText.textContent = won
@@ -326,6 +393,21 @@ function render() {
   renderFleetStatus(els.playerFleet, game.player, true);
   renderFleetStatus(els.enemyFleet, game.enemy, game.phase === 'over');
   renderScoreboard();
+  renderHeatLegend();
+}
+
+function renderSoundToggle() {
+  els.soundToggle.textContent = sound.enabled ? '🔊 Sound on' : '🔇 Sound off';
+  els.soundToggle.setAttribute('aria-pressed', String(sound.enabled));
+}
+
+function heatVisible() {
+  return ui.showHeat && ui.game.phase !== 'placement';
+}
+
+function renderHeatLegend() {
+  els.heatLegend.hidden = !heatVisible();
+  els.heatMode.textContent = HEAT_DESCRIPTIONS[ui.game.ai.difficulty];
 }
 
 function renderDock() {
@@ -341,6 +423,7 @@ function renderDock() {
     btn.setAttribute('aria-pressed', String(ui.selected === def.id));
     btn.innerHTML = `<span class="name">${def.name}</span><span class="pips">${'<i></i>'.repeat(def.length)}</span>`;
     btn.addEventListener('click', () => {
+      sound.play(placed ? 'pickup' : 'click');
       if (placed) game.player.remove(def.id);
       ui.selected = def.id;
       setStatus(`Placing ${def.name} (${def.length}). Click your waters.`);
@@ -385,6 +468,15 @@ function renderPlayer() {
     if (shot) cls.push(shot);
     if (previewSet.has(`${r},${c}`)) cls.push(preview.valid ? 'preview' : 'preview-bad');
     if (ui.lastAiShot && ui.lastAiShot[0] === r && ui.lastAiShot[1] === c) cls.push('last');
+    const plan = heatVisible() ? ui.aiPlan : null;
+    const h = plan ? plan.heat[r * 10 + c] : 0;
+    const aiming = plan && game.phase === 'battle' && game.turn === 'ai' &&
+      plan.shot[0] === r && plan.shot[1] === c;
+    if (aiming) cls.push('aim');
+    const heatEl = cell.firstElementChild;
+    heatEl.classList.toggle('on', h >= MIN_VISIBLE_HEAT);
+    heatEl.style.setProperty('--h', h.toFixed(3));
+    cell.title = h >= MIN_VISIBLE_HEAT ? `AI interest: ${Math.round(h * 100)}%` : '';
     cell.className = cls.join(' ');
     cell.disabled = game.phase !== 'placement';
     cell.setAttribute('aria-label', `${coordLabel(r, c)}${ship ? `, your ${ship.name}` : ''}${shot ? `, ${shot}` : ''}`);

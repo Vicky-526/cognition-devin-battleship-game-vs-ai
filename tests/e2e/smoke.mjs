@@ -5,6 +5,15 @@ const page = await browser.newPage({ viewport: { width: 1300, height: 950 } });
 const errors = [];
 page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
 page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+await page.addInitScript(() => {
+  window.__audio = { oscillators: 0, noises: 0 };
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  const osc = AC.prototype.createOscillator;
+  const buf = AC.prototype.createBufferSource;
+  AC.prototype.createOscillator = function (...a) { window.__audio.oscillators++; return osc.apply(this, a); };
+  AC.prototype.createBufferSource = function (...a) { window.__audio.noises++; return buf.apply(this, a); };
+});
 await page.goto(URL);
 await page.screenshot({ path: (process.env.SHOTS || '.') + '/01-start.png' });
 
@@ -34,12 +43,31 @@ await page.click('#start');
 
 // rapid double click on enemy board during AI turn
 await ecell(0, 0).click();
+const aiming = await page.evaluate(() => ({
+  aim: document.querySelectorAll('#player-board .cell.aim').length,
+  heat: document.querySelectorAll('#player-board .heat.on').length,
+  legend: !document.getElementById('heat-legend').hidden,
+}));
+console.log('during AI turn -> aim cells (expect 1), heat cells (>0), legend visible:', aiming);
+await page.screenshot({ path: (process.env.SHOTS || '.') + '/04b-aiming.png' });
 await ecell(0, 1).click({ force: true, timeout: 1000 }).catch(() => {});
 await page.waitForTimeout(100);
 const shotsAfterSpam = await page.evaluate(() => document.querySelectorAll('#enemy-board .cell.hit, #enemy-board .cell.miss').length);
 console.log('enemy shots after spam (expect 1):', shotsAfterSpam);
 await page.waitForTimeout(900);
 await page.screenshot({ path: (process.env.SHOTS || '.') + '/05-battle.png' });
+
+console.log('audio nodes created so far (expect >0):', await page.evaluate(() => window.__audio));
+await page.click('#heat-toggle');
+console.log('heat cells with toggle off (expect 0):', await page.evaluate(() => document.querySelectorAll('#player-board .heat.on').length));
+await page.click('#heat-toggle');
+await page.click('#sound-toggle');
+const before = await page.evaluate(() => window.__audio.oscillators + window.__audio.noises);
+console.log('sound toggle text:', await page.textContent('#sound-toggle'));
+await page.locator('#enemy-board .cell.target').first().click();
+await page.waitForTimeout(900);
+console.log('audio nodes while muted (expect 0 new):', (await page.evaluate(() => window.__audio.oscillators + window.__audio.noises)) - before);
+await page.click('#sound-toggle');
 
 // play until over
 let guard = 0;
