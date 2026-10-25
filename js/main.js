@@ -1,7 +1,7 @@
-import { FLEET, COLS, coordLabel } from './engine.js';
-import { AIPlayer, DIFFICULTIES } from './ai.js';
-import { Game } from './game.js';
-import { SoundFX } from './sound.js';
+import { FLEET, COLS, coordLabel } from './engine.js?v=2';
+import { AIPlayer, DIFFICULTIES } from './ai.js?v=2';
+import { Game } from './game.js?v=2';
+import { SoundFX } from './sound.js?v=2';
 
 const AI_DELAY_MS = 650;
 const RECORD_KEY = 'battleship-record-v1';
@@ -37,6 +37,7 @@ const els = {
   playerFleet: $('player-fleet'),
   enemyFleet: $('enemy-fleet'),
   scoreboard: $('scoreboard'),
+  resetRecord: $('reset-record'),
   log: $('log'),
   dialog: $('game-over'),
   resultTitle: $('result-title'),
@@ -53,7 +54,6 @@ const ui = {
   aiTimer: null,
   lastPlayerShot: null,
   lastAiShot: null,
-  aiPlan: null,
   showHeat: loadHeatPref(),
   record: loadRecord(),
 };
@@ -159,6 +159,15 @@ function init() {
     newGame();
   });
   els.viewBoard.addEventListener('click', () => els.dialog.close());
+  els.resetRecord.addEventListener('click', () => {
+    const { wins, losses } = ui.record;
+    if (!window.confirm(`Reset your win–loss record (${wins}–${losses}) to 0–0?`)) return;
+    ui.record = { wins: 0, losses: 0 };
+    saveRecord();
+    sound.play('click');
+    renderScoreboard();
+    setStatus('Win–loss record reset to 0–0.');
+  });
   els.difficulty.addEventListener('change', onDifficultyChange);
   els.soundToggle.addEventListener('click', () => {
     sound.setEnabled(!sound.enabled);
@@ -172,6 +181,9 @@ function init() {
     render();
   });
   renderSoundToggle();
+  for (const type of ['pointerdown', 'touchend', 'keydown']) {
+    document.addEventListener(type, () => sound.unlock(), { capture: true, passive: true });
+  }
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'r' && e.key !== 'R') return;
@@ -192,7 +204,6 @@ function newGame() {
   ui.horizontal = true;
   ui.lastPlayerShot = null;
   ui.lastAiShot = null;
-  ui.aiPlan = null;
   els.log.innerHTML = '';
   setStatus('Place your fleet to begin. Select a ship, then click your waters.');
   render();
@@ -296,7 +307,6 @@ function onEnemyCell(r, c) {
     endGame();
     return;
   }
-  ui.aiPlan = game.planAiTurn();
   render();
   setStatus(`${resultPhrase('player', outcome)} Enemy is taking aim…`);
   ui.aiTimer = setTimeout(aiTurn, AI_DELAY_MS);
@@ -308,7 +318,6 @@ function aiTurn() {
   if (game.phase !== 'battle' || game.turn !== 'ai') return;
   const outcome = game.aiFire();
   ui.lastAiShot = [outcome.r, outcome.c];
-  ui.aiPlan = null;
   playShotSounds(outcome);
   describeShot('ai', outcome.r, outcome.c, outcome);
   render();
@@ -407,8 +416,7 @@ function heatVisible() {
 
 function renderHeatLegend() {
   els.heatLegend.hidden = !heatVisible();
-  const waiting = ui.aiPlan ? '' : ' The map appears while the AI is taking aim.';
-  els.heatMode.textContent = HEAT_DESCRIPTIONS[ui.game.ai.difficulty] + waiting;
+  els.heatMode.textContent = `${HEAT_DESCRIPTIONS[ui.game.ai.difficulty]} It updates after every AI shot.`;
 }
 
 function renderDock() {
@@ -469,7 +477,7 @@ function renderPlayer() {
     if (shot) cls.push(shot);
     if (previewSet.has(`${r},${c}`)) cls.push(preview.valid ? 'preview' : 'preview-bad');
     if (ui.lastAiShot && ui.lastAiShot[0] === r && ui.lastAiShot[1] === c) cls.push('last');
-    const plan = heatVisible() ? ui.aiPlan : null;
+    const plan = heatVisible() ? game.planAiTurn() : null;
     const h = plan ? plan.heat[r * 10 + c] : 0;
     const aiming = plan && game.phase === 'battle' && game.turn === 'ai' &&
       plan.shot[0] === r && plan.shot[1] === c;
@@ -531,6 +539,7 @@ function renderScoreboard() {
     <div><span>You</span><strong>${p.hits}/${p.shots}</strong><small>hits · ${accuracy(p)}</small></div>
     <div><span>AI</span><strong>${a.hits}/${a.shots}</strong><small>hits · ${accuracy(a)}</small></div>
     <div><span>Record</span><strong>${record.wins}–${record.losses}</strong><small>wins–losses</small></div>`;
+  els.resetRecord.disabled = record.wins === 0 && record.losses === 0;
 }
 
 init();

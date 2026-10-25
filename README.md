@@ -15,9 +15,9 @@ A browser-based Battleship game you play against a computer opponent. Pure HTML,
 3. Click a cell on *Enemy waters* to fire. You and the AI take turns, one shot each.
 4. Sink all five enemy ships (Carrier 5, Battleship 4, Cruiser 3, Submarine 3, Destroyer 2) before the AI sinks yours.
 
-**Sound:** shots, splashes, explosions, sinking ships, ship placement, and win/lose jingles. They're generated in the browser with the Web Audio API, so there are no audio files. Use **🔊 Sound on/off** in the top bar to mute; the game remembers your choice.
+**Sound:** shots, splashes, explosions, sinking ships, ship placement, and win/lose jingles. They're generated in the browser with the Web Audio API, so there are no audio files. Sound starts after your first click or key press (browsers block audio until then). Use **🔊 Sound on/off** in the top bar to mute; the game remembers your choice.
 
-**AI heat map:** with **AI heat map** ticked, your board shows where the AI is looking each turn. Brighter yellow to red cells are the ones it rates more likely to hold a ship. A pulsing crosshair marks the cell it's about to fire at. The map clears once the AI fires and is recalculated on its next turn. What the colours mean depends on the difficulty:
+**AI heat map:** with **AI heat map** ticked, your board shows where the AI is looking each turn. Brighter yellow to red cells are the ones it rates more likely to hold a ship. The map stays up for the whole battle and updates after every AI shot. While the AI is taking aim, a pulsing crosshair marks the exact cell it's about to fire at. What the colours mean depends on the difficulty:
 - Hard: how many possible placements of your remaining ships cover each cell.
 - Normal and Easy: the cells it's currently choosing between.
 

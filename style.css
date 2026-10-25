@@ -310,6 +310,20 @@ body[data-turn="ai"] .enemy { opacity: 0.8; }
 .scoreboard span { font-size: 0.75rem; color: var(--muted); }
 .scoreboard strong { font-size: 1.15rem; }
 .scoreboard small { font-size: 0.7rem; color: var(--muted); }
+.link-btn {
+  align-self: flex-end;
+  margin-top: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.75rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-btn:hover:not(:disabled), .link-btn:focus-visible { color: var(--accent); }
+.link-btn:disabled { opacity: 0.4; cursor: default; text-decoration: none; }
 
 .log {
   list-style: none;
