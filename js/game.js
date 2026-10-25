@@ -1,5 +1,5 @@
-import { Board, FLEET } from './engine.js';
-import { AIPlayer } from './ai.js';
+import { Board, FLEET } from './engine.js?v=2';
+import { AIPlayer } from './ai.js?v=2';
 
 export class Game {
   constructor({ difficulty = 'normal', rng = Math.random } = {}) {
@@ -40,8 +40,10 @@ export class Game {
     return outcome;
   }
 
+  // The AI's knowledge only changes when it fires, so its next move can be
+  // planned (and shown) during the player's turn and still be the shot it takes.
   planAiTurn() {
-    if (this.phase !== 'battle' || this.turn !== 'ai') return null;
+    if (this.phase !== 'battle') return null;
     if (!this.aiPlan) this.aiPlan = this.ai.plan();
     return this.aiPlan;
   }

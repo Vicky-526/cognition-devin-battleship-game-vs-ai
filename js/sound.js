@@ -16,6 +16,7 @@ export class SoundFX {
     this.master = null;
     this.noiseBuffer = null;
     this.active = new Set();
+    this.unlocked = false;
   }
 
   setEnabled(enabled) {
@@ -43,10 +44,28 @@ export class SoundFX {
     src.onended = () => this.active.delete(src);
   }
 
+  // Browsers only allow audio after a user gesture; iOS also needs a sound
+  // started inside that gesture, and mutes Web Audio on the silent switch
+  // unless the page declares itself a playback session.
+  unlock() {
+    if (!this.enabled || this.unlocked) return;
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const src = ctx.createBufferSource();
+    src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+    src.connect(ctx.destination);
+    src.start(0);
+    if (ctx.state === 'running') this.unlocked = true;
+    else ctx.resume().then(() => { this.unlocked = ctx.state === 'running'; }).catch(() => {});
+  }
+
   ensure() {
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback';
+      } catch { /* unsupported */ }
       this.ctx = new AC();
       this.master = this.ctx.createGain();
       this.master.gain.value = MASTER_VOLUME;
@@ -56,7 +75,7 @@ export class SoundFX {
       const data = this.noiseBuffer.getChannelData(0);
       for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
     return this.ctx;
   }
 

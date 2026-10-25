@@ -115,17 +115,24 @@ test('plan() exposes a normalised heat map consistent with the chosen shot', () 
 });
 
 test('Game fires at the cell it planned (the one shown in the heat map)', () => {
-  const game = new Game({ difficulty: 'hard', rng: seeded(5) });
-  game.player.randomize(FLEET, seeded(6));
-  game.start();
-  assert.equal(game.planAiTurn(), null, 'no plan during the player turn');
-  for (let i = 0; i < 20 && game.phase === 'battle'; i++) {
-    game.playerFire(Math.floor(i / 10), i % 10);
-    if (game.phase !== 'battle') break;
-    const plan = game.planAiTurn();
-    assert.strictEqual(game.planAiTurn(), plan, 'planning is idempotent within a turn');
-    const outcome = game.aiFire();
-    assert.deepEqual([outcome.r, outcome.c], plan.shot);
-    assert.strictEqual(outcome.plan, plan);
+  for (const difficulty of ['easy', 'normal', 'hard']) {
+    const game = new Game({ difficulty, rng: seeded(5) });
+    assert.equal(game.planAiTurn(), null, 'no plan before the battle starts');
+    game.player.randomize(FLEET, seeded(6));
+    game.start();
+    for (let i = 0; i < 40 && game.phase === 'battle'; i++) {
+      const preview = game.planAiTurn();
+      assert.ok(preview, 'the next AI move is visible during the player turn');
+      game.playerFire(Math.floor(i / 10), i % 10);
+      if (game.phase !== 'battle') break;
+      const plan = game.planAiTurn();
+      assert.strictEqual(plan, preview, 'the player shot does not change the AI plan');
+      const outcome = game.aiFire();
+      assert.deepEqual([outcome.r, outcome.c], plan.shot);
+      assert.strictEqual(outcome.plan, plan);
+      if (game.phase === 'battle') assert.notStrictEqual(game.planAiTurn(), plan, 'a fresh plan follows each AI shot');
+    }
+    game.finish('player');
+    assert.equal(game.planAiTurn(), null, 'no plan once the game is over');
   }
 });

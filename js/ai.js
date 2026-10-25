@@ -1,4 +1,4 @@
-import { SIZE, FLEET, randomInt } from './engine.js';
+import { SIZE, FLEET, randomInt } from './engine.js?v=2';
 
 const UNKNOWN = 0;
 const MISS = 1;
