@@ -197,10 +197,12 @@ body[data-turn="ai"] .enemy { opacity: 0.8; }
   opacity: calc(0.12 + 0.73 * var(--h));
   background: hsl(calc(55 - 55 * var(--h)) 100% 50%);
 }
-.cell.aim { box-shadow: inset 0 0 0 2px #fff; }
+.cell.aim .heat { box-shadow: inset 0 0 0 2px #fff; }
 .cell.aim::before {
   content: "";
   position: absolute;
+  z-index: 1;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8));
   inset: 12%;
   border: 2px solid #fff;
   border-radius: 50%;

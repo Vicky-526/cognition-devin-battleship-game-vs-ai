@@ -308,7 +308,7 @@ function aiTurn() {
   if (game.phase !== 'battle' || game.turn !== 'ai') return;
   const outcome = game.aiFire();
   ui.lastAiShot = [outcome.r, outcome.c];
-  ui.aiPlan = outcome.plan;
+  ui.aiPlan = null;
   playShotSounds(outcome);
   describeShot('ai', outcome.r, outcome.c, outcome);
   render();
@@ -402,12 +402,13 @@ function renderSoundToggle() {
 }
 
 function heatVisible() {
-  return ui.showHeat && ui.game.phase !== 'placement';
+  return ui.showHeat && ui.game.phase === 'battle';
 }
 
 function renderHeatLegend() {
   els.heatLegend.hidden = !heatVisible();
-  els.heatMode.textContent = HEAT_DESCRIPTIONS[ui.game.ai.difficulty];
+  const waiting = ui.aiPlan ? '' : ' The map appears while the AI is taking aim.';
+  els.heatMode.textContent = HEAT_DESCRIPTIONS[ui.game.ai.difficulty] + waiting;
 }
 
 function renderDock() {

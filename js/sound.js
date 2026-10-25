@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'battleship-sound-v1';
+const MASTER_VOLUME = 0.5;
 
 function loadEnabled() {
   try {
@@ -14,13 +15,32 @@ export class SoundFX {
     this.ctx = null;
     this.master = null;
     this.noiseBuffer = null;
+    this.active = new Set();
   }
 
   setEnabled(enabled) {
     this.enabled = enabled;
+    if (this.master) {
+      const t = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(t);
+      this.master.gain.setValueAtTime(enabled ? MASTER_VOLUME : 0, t);
+    }
+    if (!enabled) this.stopAll();
     try {
       localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off');
     } catch { /* storage unavailable */ }
+  }
+
+  stopAll() {
+    for (const src of this.active) {
+      try { src.stop(); } catch { /* already stopped */ }
+    }
+    this.active.clear();
+  }
+
+  track(src) {
+    this.active.add(src);
+    src.onended = () => this.active.delete(src);
   }
 
   ensure() {
@@ -29,7 +49,7 @@ export class SoundFX {
       if (!AC) return null;
       this.ctx = new AC();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.5;
+      this.master.gain.value = MASTER_VOLUME;
       this.master.connect(this.ctx.destination);
       const len = this.ctx.sampleRate * 2;
       this.noiseBuffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -55,6 +75,7 @@ export class SoundFX {
     if (to !== freq) osc.frequency.exponentialRampToValueAtTime(to, t + dur);
     this.envelope(g, t, vol, dur);
     osc.connect(g).connect(this.master);
+    this.track(osc);
     osc.start(t);
     osc.stop(t + dur + 0.05);
   }
@@ -71,6 +92,7 @@ export class SoundFX {
     const g = this.ctx.createGain();
     this.envelope(g, t, vol, dur);
     src.connect(f).connect(g).connect(this.master);
+    this.track(src);
     src.start(t, Math.random());
     src.stop(t + dur + 0.05);
   }
