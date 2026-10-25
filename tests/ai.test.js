@@ -91,3 +91,41 @@ test('Game reaches a winner and stops accepting shots', () => {
   assert.equal(game.playerFire(9, 9).result, 'invalid');
   assert.equal(game.aiFire().result, 'invalid');
 });
+
+test('plan() exposes a normalised heat map consistent with the chosen shot', () => {
+  for (const difficulty of ['easy', 'normal', 'hard']) {
+    const rng = seeded(21);
+    const board = new Board();
+    board.randomize(FLEET, rng);
+    const ai = new AIPlayer(difficulty, { rng });
+    for (let turn = 0; turn < 40 && !board.allSunk(); turn++) {
+      const { shot, heat } = ai.plan();
+      assert.equal(heat.length, 100);
+      assert.ok(heat.every((h) => h >= 0 && h <= 1), `${difficulty} heat must be in 0..1`);
+      assert.equal(Math.max(...heat), 1, `${difficulty} heat must be normalised`);
+      const [r, c] = shot;
+      assert.ok(heat[r * 10 + c] > 0, `${difficulty} shot must be on a highlighted cell`);
+      if (difficulty === 'hard') assert.equal(heat[r * 10 + c], 1, 'hard fires at the hottest cell');
+      for (let i = 0; i < 100; i++) {
+        if (ai.state[i] !== 0) assert.equal(heat[i], 0, 'already-fired cells have no heat');
+      }
+      ai.record(r, c, board.receiveShot(r, c));
+    }
+  }
+});
+
+test('Game fires at the cell it planned (the one shown in the heat map)', () => {
+  const game = new Game({ difficulty: 'hard', rng: seeded(5) });
+  game.player.randomize(FLEET, seeded(6));
+  game.start();
+  assert.equal(game.planAiTurn(), null, 'no plan during the player turn');
+  for (let i = 0; i < 20 && game.phase === 'battle'; i++) {
+    game.playerFire(Math.floor(i / 10), i % 10);
+    if (game.phase !== 'battle') break;
+    const plan = game.planAiTurn();
+    assert.strictEqual(game.planAiTurn(), plan, 'planning is idempotent within a turn');
+    const outcome = game.aiFire();
+    assert.deepEqual([outcome.r, outcome.c], plan.shot);
+    assert.strictEqual(outcome.plan, plan);
+  }
+});

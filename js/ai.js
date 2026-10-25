@@ -54,31 +54,50 @@ export class AIPlayer {
   }
 
   nextShot() {
-    const unknown = this.unknownCells();
-    if (unknown.length === 0) throw new Error('No cells left to fire at');
-    if (this.difficulty === 'easy') return this.easy(unknown);
-    if (this.difficulty === 'normal') return this.huntTarget(unknown);
-    return this.probability(unknown);
+    return this.plan().shot;
   }
 
-  easy(unknown) {
+  /**
+   * Decide the next shot and expose the reasoning behind it.
+   * Returns { shot: [r, c], heat: number[] } where heat is normalised to 0..1
+   * per cell (1 = most interesting to the AI, 0 = ruled out or never considered).
+   */
+  plan() {
+    const unknown = this.unknownCells();
+    if (unknown.length === 0) throw new Error('No cells left to fire at');
+    if (this.difficulty === 'hard') {
+      const heat = this.heatMap();
+      for (let i = 0; i < heat.length; i++) if (this.state[i] !== UNKNOWN) heat[i] = 0;
+      const max = Math.max(...heat);
+      if (max > 0) {
+        const best = unknown.filter(([r, c]) => heat[this.idx(r, c)] === max);
+        return { shot: this.pick(best), heat: heat.map((h) => h / max) };
+      }
+    }
+    const candidates = this.difficulty === 'easy' ? this.easyCandidates(unknown) : this.huntTargetCandidates(unknown);
+    const heat = new Array(this.size * this.size).fill(0);
+    for (const [r, c] of candidates) heat[this.idx(r, c)] = 1;
+    return { shot: this.pick(candidates), heat };
+  }
+
+  easyCandidates(unknown) {
     const hits = this.openHits();
     if (hits.length > 0 && this.rng() < 0.5) {
       const target = this.targetCells(hits);
-      if (target.length > 0) return this.pick(target);
+      if (target.length > 0) return target;
     }
-    return this.pick(unknown);
+    return unknown;
   }
 
-  huntTarget(unknown) {
+  huntTargetCandidates(unknown) {
     const hits = this.openHits();
     if (hits.length > 0) {
       const target = this.targetCells(hits);
-      if (target.length > 0) return this.pick(target);
+      if (target.length > 0) return target;
     }
     const minLen = this.remaining.length > 0 ? Math.min(...this.remaining) : 1;
     const parity = unknown.filter(([r, c]) => (r + c) % minLen === 0);
-    return this.pick(parity.length > 0 ? parity : unknown);
+    return parity.length > 0 ? parity : unknown;
   }
 
   targetCells(hits) {
@@ -138,23 +157,6 @@ export class AIPlayer {
       }
     }
     return heat;
-  }
-
-  probability(unknown) {
-    const heat = this.heatMap();
-    let best = -1;
-    let candidates = [];
-    for (const [r, c] of unknown) {
-      const h = heat[this.idx(r, c)];
-      if (h > best) {
-        best = h;
-        candidates = [[r, c]];
-      } else if (h === best) {
-        candidates.push([r, c]);
-      }
-    }
-    if (best <= 0) return this.huntTarget(unknown);
-    return this.pick(candidates);
   }
 
   record(r, c, outcome) {
